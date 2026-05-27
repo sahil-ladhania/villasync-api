@@ -347,7 +347,7 @@ export async function getABookingService(bookingId: number): Promise<Booking | n
 }
 
 // Service to Search and Filter Bookings
-export async function searchAndFilterBookingsService(validatedData: searchAndFilterBookingData): Promise<Booking[] | null> {
+export async function searchAndFilterBookingsService(validatedData: searchAndFilterBookingData): Promise<any> {
     try {
         let where: any = {};
 
@@ -391,6 +391,41 @@ export async function searchAndFilterBookingsService(validatedData: searchAndFil
                 lte: endOfDay
             };
         };
+
+        const { page, limit } = validatedData;
+
+        if (page !== undefined && limit !== undefined) {
+            const skip = (page - 1) * limit;
+
+            const [bookings, totalBookings] = await prisma.$transaction([
+                prisma.booking.findMany({
+                    where: where,
+                    include: {
+                        villa: true
+                    },
+                    orderBy: {
+                        createdAt: 'desc'
+                    },
+                    skip: skip,
+                    take: limit
+                }),
+                prisma.booking.count({
+                    where: where
+                })
+            ]);
+
+            const totalPages = Math.ceil(totalBookings / limit);
+
+            return {
+                bookings,
+                pagination: {
+                    totalBookings,
+                    totalPages,
+                    currentPage: page,
+                    limit
+                }
+            };
+        }
 
         const bookings = await prisma.booking.findMany({
             where: where,
